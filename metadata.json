@@ -1,0 +1,8 @@
+{
+  "name": "探课AI - 规模化因材施教平台",
+  "description": "基于‘三库一体’架构的AI教学平台，支持教师备课外脑与学生教师分身，实现问题化、个性化的规模化因材施教。",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

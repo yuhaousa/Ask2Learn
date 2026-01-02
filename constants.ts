@@ -1,5 +1,5 @@
 
-import { Dimension, QuestionItem, ScaffoldResource } from './types';
+import { Dimension, QuestionItem, ScaffoldResource } from './types.ts';
 
 export const BUOYANCY_CHAIN: QuestionItem[] = [
   // 是何

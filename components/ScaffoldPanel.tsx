@@ -1,7 +1,7 @@
 
 import React from 'react';
-import { Dimension, ScaffoldResource, LearningStatus } from '../types';
-import { SCAFFOLD_RESOURCES } from '../constants';
+import { Dimension, LearningStatus } from '../types.ts';
+import { SCAFFOLD_RESOURCES } from '../constants.ts';
 import { PlayCircle, FileText, CheckSquare, Lightbulb, Compass } from 'lucide-react';
 
 interface ScaffoldPanelProps {
@@ -10,7 +10,6 @@ interface ScaffoldPanelProps {
 }
 
 const ScaffoldPanel: React.FC<ScaffoldPanelProps> = ({ currentDimension, status }) => {
-  // 筛选与当前维度相关的资源，或者基于AI诊断推荐
   const recommendations = SCAFFOLD_RESOURCES.filter(r => r.targetDimension === currentDimension);
 
   return (

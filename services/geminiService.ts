@@ -1,7 +1,7 @@
 
 import { GoogleGenAI, GenerateContentResponse, Type, Modality } from "@google/genai";
-import { ChatMessage, LearningStatus, Dimension } from "../types";
-import { SYSTEM_INSTRUCTION } from "../constants";
+import { ChatMessage, LearningStatus, Dimension } from "../types.ts";
+import { SYSTEM_INSTRUCTION } from "../constants.ts";
 
 export interface QuizQuestion {
   question: string;
@@ -91,7 +91,7 @@ export class GeminiService {
                   minItems: 4,
                   maxItems: 4
                 },
-                correctAnswer: { type: Type.INTEGER, description: "Correct option index (0-3)" },
+                correctAnswer: { type: Type.INTEGER },
                 explanation: { type: Type.STRING }
               },
               required: ["question", "options", "correctAnswer", "explanation"]
@@ -120,8 +120,8 @@ export class GeminiService {
             items: {
               type: Type.OBJECT,
               properties: {
-                front: { type: Type.STRING, description: "卡片正面：概念或问题" },
-                back: { type: Type.STRING, description: "卡片背面：定义或解析" }
+                front: { type: Type.STRING },
+                back: { type: Type.STRING }
               },
               required: ["front", "back"]
             }
@@ -179,7 +179,7 @@ export class GeminiService {
               properties: {
                 title: { type: Type.STRING },
                 bullets: { type: Type.ARRAY, items: { type: Type.STRING } },
-                visualPrompt: { type: Type.STRING, description: "描述该幻灯片应有的视觉内容" }
+                visualPrompt: { type: Type.STRING }
               },
               required: ["title", "bullets", "visualPrompt"]
             }
@@ -261,17 +261,17 @@ export class GeminiService {
             type: Type.OBJECT,
             properties: {
               title: { type: Type.STRING },
-              mission: { type: Type.STRING, description: "游戏任务目标" },
-              context: { type: Type.STRING, description: "场景背景描述" },
+              mission: { type: Type.STRING },
+              context: { type: Type.STRING },
               options: {
                 type: Type.ARRAY,
                 items: {
                   type: Type.OBJECT,
                   properties: {
-                    label: { type: Type.STRING, description: "操作选项" },
-                    outcome: { type: Type.STRING, description: "选择后的结果叙述" },
+                    label: { type: Type.STRING },
+                    outcome: { type: Type.STRING },
                     isCorrect: { type: Type.BOOLEAN },
-                    scientificReason: { type: Type.STRING, description: "背后的科学原理分析" }
+                    scientificReason: { type: Type.STRING }
                   },
                   required: ["label", "outcome", "isCorrect", "scientificReason"]
                 },

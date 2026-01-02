@@ -1,14 +1,14 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Dimension, ChatMessage, QuestionItem, LearningStatus } from '../types';
-import { BUOYANCY_CHAIN, DIMENSION_DESCRIPTIONS } from '../constants';
-import QuestionChainVis from './QuestionChainVis';
-import KnowledgeMap from './KnowledgeMap';
-import ScaffoldPanel from './ScaffoldPanel';
-import TextbookView from './TextbookView';
-import StudioPanel from './StudioPanel';
+import { Dimension, ChatMessage, LearningStatus } from '../types.ts';
+import { BUOYANCY_CHAIN, DIMENSION_DESCRIPTIONS } from '../constants.ts';
+import QuestionChainVis from './QuestionChainVis.tsx';
+import KnowledgeMap from './KnowledgeMap.tsx';
+import ScaffoldPanel from './ScaffoldPanel.tsx';
+import TextbookView from './TextbookView.tsx';
+import StudioPanel from './StudioPanel.tsx';
 import { Send, Sparkles, MessageCircle, ArrowRight, HelpCircle, User, GraduationCap, Brain, Map, Target, Lightbulb, Book, MessagesSquare, ChevronRight } from 'lucide-react';
-import { geminiService } from '../services/geminiService';
+import { geminiService } from '../services/geminiService.ts';
 
 const StudentView: React.FC = () => {
   const [currentDimension, setCurrentDimension] = useState<Dimension>(Dimension.WHAT);
@@ -25,7 +25,6 @@ const StudentView: React.FC = () => {
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
 
   useEffect(() => {
-    // 初始欢迎语
     const introMessage = `你好！我是你的探课助手。我们即将开始对“水的浮力”进行深度探索。\n\n第一个挑战属于【${currentDimension}】维度：\n${filteredQuestions[currentQuestionIdx].question}`;
     setMessages([{ role: 'model', text: introMessage }]);
   }, []);
@@ -42,7 +41,6 @@ const StudentView: React.FC = () => {
 
     if (!manualText) setInputText('');
     
-    // 如果是点击大纲问题，自动切换到对话模式
     if (qaMode !== 'chat') setQaMode('chat');
 
     const updatedMessages: ChatMessage[] = [...messages, { role: 'user', text: textToSend }];
@@ -88,7 +86,6 @@ const StudentView: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-6 h-[calc(100vh-140px)] overflow-hidden w-full">
-      {/* Top Header Row with Breadcrumbs and Mode Switcher */}
       <div className="flex items-center justify-between shrink-0 px-2">
         <div className="flex items-center gap-2 text-slate-400 text-sm font-medium">
           <span className="hover:text-amber-500 cursor-pointer transition-colors">科学 8年级上册</span>
@@ -112,9 +109,7 @@ const StudentView: React.FC = () => {
         </div>
       </div>
 
-      {/* Grid with 25% - 40% - 25% distribution */}
       <div className="grid grid-cols-1 lg:grid-cols-[25%_1fr_25%] gap-6 flex-1 overflow-hidden min-h-0 w-full">
-        {/* 左侧：辅助学习面板 (25%) */}
         <div className="flex flex-col bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden min-w-0">
           <div className="flex border-b shrink-0">
             <button 
@@ -158,7 +153,7 @@ const StudentView: React.FC = () => {
                       <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest mb-2">核心探究点</p>
                       <div className="p-4 bg-amber-500/10 rounded-xl border border-amber-500/20 border-dashed">
                         <p className="text-sm text-amber-100 leading-relaxed italic font-medium">
-                          “{filteredQuestions[currentQuestionIdx].question}”
+                          “{filteredQuestions[currentQuestionIdx]?.question}”
                         </p>
                       </div>
                     </div>
@@ -191,11 +186,9 @@ const StudentView: React.FC = () => {
           </div>
         </div>
 
-        {/* 中间：主视图 (40% proportional, grows to fill) */}
         <div className="flex flex-col bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden relative min-h-0 min-w-0">
           <div className="absolute top-0 right-0 w-64 h-64 bg-amber-50/50 rounded-full blur-[100px] -mr-32 -mt-32 pointer-events-none" />
           
-          {/* Box Header with Navigation Visualization */}
           <div className="px-6 py-3 border-b bg-slate-50/50 flex items-center justify-between gap-6 shrink-0">
             <div className="flex-1 overflow-hidden">
               <QuestionChainVis 
@@ -207,13 +200,8 @@ const StudentView: React.FC = () => {
                 }}
               />
             </div>
-            <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 bg-white rounded-full border border-slate-200 shadow-sm shrink-0">
-              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">实时在线</span>
-            </div>
           </div>
 
-          {/* Content Area */}
           {qaMode === 'chat' ? (
             <>
               <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-8 bg-slate-50/30 animate-in fade-in slide-in-from-bottom-2 duration-300 custom-scrollbar">
@@ -290,7 +278,6 @@ const StudentView: React.FC = () => {
           )}
         </div>
 
-        {/* 右侧：学习工具箱 (25%) */}
         <div className="overflow-hidden min-h-0 min-w-0">
           <StudioPanel currentDimension={currentDimension} />
         </div>

@@ -49,12 +49,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChange }) =
         </div>
       </nav>
       
-      {/* Changed max-w-7xl to max-w-full to utilize the whole screen width */}
       <main className="flex-1 w-full max-w-full mx-auto p-4 md:px-10 lg:px-12 overflow-hidden flex flex-col">
         {children}
       </main>
 
-      {/* Only show footer on landing page to maximize focus on learning/exploration pages */}
       {activeView === 'landing' && (
         <footer className="bg-white border-t py-8 px-6 text-center text-slate-400 text-sm shrink-0">
           <p>© 2024 探课AI - 规模化因材施教智能体. 浙大计算机创新技术研究院合作项目</p>

@@ -1,7 +1,7 @@
 
 import React from 'react';
-import { Dimension } from '../types';
-import { CheckCircle2, Circle } from 'lucide-react';
+import { Dimension } from '../types.ts';
+import { CheckCircle2 } from 'lucide-react';
 
 interface QuestionChainVisProps {
   currentDimension: Dimension;

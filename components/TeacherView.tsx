@@ -1,12 +1,11 @@
 
 import React from 'react';
 import { Database, BookText, FileSpreadsheet, BrainCircuit, PlusCircle, Search, Filter, ChevronRight } from 'lucide-react';
-import { BUOYANCY_CHAIN } from '../constants';
+import { BUOYANCY_CHAIN } from '../constants.ts';
 
 const TeacherView: React.FC = () => {
   return (
     <div className="space-y-8">
-      {/* Header Info */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-800">备课外脑 (Teaching Brain)</h1>
@@ -17,7 +16,6 @@ const TeacherView: React.FC = () => {
         </button>
       </div>
 
-      {/* Three Databases Status */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[
           { icon: BookText, title: '校本知识库', label: '"方"', desc: '新课标、学科大概念、问题链', color: 'bg-blue-500' },
@@ -39,7 +37,6 @@ const TeacherView: React.FC = () => {
         ))}
       </div>
 
-      {/* Active Lesson Plan */}
       <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="p-6 border-b flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -50,15 +47,6 @@ const TeacherView: React.FC = () => {
               <h3 className="font-bold text-slate-800">当前教案：水的浮力</h3>
               <p className="text-xs text-slate-400">浙教版 - 八年级上册 - 第二章</p>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input type="text" placeholder="搜索问题..." className="pl-9 pr-4 py-2 bg-slate-50 border-none rounded-lg text-sm focus:ring-1 focus:ring-amber-400 w-48" />
-            </div>
-            <button className="p-2 bg-slate-50 rounded-lg text-slate-400 hover:text-slate-600">
-              <Filter className="w-4 h-4" />
-            </button>
           </div>
         </div>
 
@@ -88,16 +76,10 @@ const TeacherView: React.FC = () => {
                   <td className="px-6 py-4">
                     <div className="flex gap-1">
                       <div className="w-6 h-6 rounded bg-blue-50 flex items-center justify-center text-blue-500 text-[10px] font-bold">PPT</div>
-                      <div className="w-6 h-6 rounded bg-green-50 flex items-center justify-center text-green-500 text-[10px] font-bold">LAB</div>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-green-500" style={{ width: `${80 - i * 5}%` }} />
-                      </div>
-                      <span className="text-[10px] font-bold text-slate-500">{80 - i * 5}%</span>
-                    </div>
+                  <td className="px-6 py-4 text-sm font-medium text-slate-500">
+                    {80 - i * 5}%
                   </td>
                   <td className="px-6 py-4">
                     <button className="text-slate-400 hover:text-amber-500 transition-colors">
@@ -108,11 +90,6 @@ const TeacherView: React.FC = () => {
               ))}
             </tbody>
           </table>
-        </div>
-        <div className="p-4 bg-slate-50 text-center">
-          <button className="text-sm font-bold text-amber-600 hover:text-amber-700">
-            查看完整 40 个探究问题链
-          </button>
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 
 import React from 'react';
-import { Dimension } from '../types';
-import { DIMENSION_DESCRIPTIONS, SUB_TOPICS, BUOYANCY_CHAIN } from '../constants';
+import { Dimension } from '../types.ts';
+import { DIMENSION_DESCRIPTIONS, SUB_TOPICS, BUOYANCY_CHAIN } from '../constants.ts';
 import { 
   MessageCircle, 
   CheckCircle2, 
@@ -24,7 +24,6 @@ const KnowledgeMap: React.FC<KnowledgeMapProps> = ({
 
   return (
     <div className="flex flex-col gap-4 animate-in fade-in duration-500 pb-4">
-      {/* 顶部简易进度提示 */}
       <div className="bg-slate-900 rounded-2xl p-4 border border-slate-800 shadow-lg mb-2 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-20 h-20 bg-amber-500/10 rounded-full blur-2xl" />
         <div className="flex items-center justify-between relative z-10">
@@ -39,7 +38,6 @@ const KnowledgeMap: React.FC<KnowledgeMapProps> = ({
         </div>
       </div>
 
-      {/* 全展开的维度列表 */}
       <div className="space-y-4">
         {dimensions.map((dim, dimIdx) => {
           const isActive = currentDimension === dim;
@@ -71,9 +69,8 @@ const KnowledgeMap: React.FC<KnowledgeMapProps> = ({
                   {isActive && <Sparkles className="w-3 h-3 text-amber-500 animate-pulse" />}
                 </div>
 
-                {/* 问题列表 - 点击直接触发对话 */}
                 <div className="space-y-1.5">
-                  {dimQuestions.map((q, qIdx) => (
+                  {dimQuestions.map((q) => (
                     <button 
                       key={q.id} 
                       onClick={() => onQuestionClick?.(q.question)}
@@ -93,7 +90,6 @@ const KnowledgeMap: React.FC<KnowledgeMapProps> = ({
                   ))}
                 </div>
 
-                {/* 底部微型概念标签 */}
                 <div className="flex flex-wrap gap-1 mt-3 pt-2 border-t border-slate-100/50">
                   {topics.map((topic, tIdx) => (
                     <span 

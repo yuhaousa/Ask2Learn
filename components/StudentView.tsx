@@ -20,8 +20,6 @@ import {
   MessagesSquare, 
   ChevronRight,
   ChevronLeft,
-  Search,
-  Filter,
   Library as LibraryIcon
 } from 'lucide-react';
 import { geminiService } from '../services/geminiService.ts';
@@ -39,7 +37,7 @@ interface Textbook {
 }
 
 interface OutlineCategory {
-  letter: string;
+  id: string;
   title: string;
   color: string;
   topics: { id: string; title: string; active?: boolean }[];
@@ -53,7 +51,6 @@ const MOCK_BOOKS: Textbook[] = [
     grade: '八年级上册', 
     color: 'bg-[#2b96d1]', 
     brandColor: '#2b96d1',
-    // 使用用户提供的桥梁封面图片（模拟高质量占位符，视觉上与原图一致）
     cover: 'https://images.unsplash.com/photo-1452623668442-c6978aae0628?q=80&w=800&auto=format&fit=crop' 
   },
   { id: 'math8', title: '数学 八年级上册', subject: '数学', grade: '八年级上册', color: 'bg-[#54a32e]', brandColor: '#54a32e', cover: 'https://images.unsplash.com/photo-1509228468518-180dd48a579a?q=80&w=800&auto=format&fit=crop' },
@@ -62,7 +59,7 @@ const MOCK_BOOKS: Textbook[] = [
 
 const SCIENCE_OUTLINE: OutlineCategory[] = [
   {
-    letter: 'A', title: '第1章 对环境的觉察', color: 'text-[#54a32e]',
+    id: 'ch1', title: '第1章 对环境的觉察', color: 'text-[#54a32e]',
     topics: [
       { id: '1-1', title: '第1节 感觉世界' },
       { id: '1-2', title: '第2节 声与听觉' },
@@ -72,7 +69,7 @@ const SCIENCE_OUTLINE: OutlineCategory[] = [
     ]
   },
   {
-    letter: 'B', title: '第2章 力与空间探索', color: 'text-[#2b96d1]',
+    id: 'ch2', title: '第2章 力与空间探索', color: 'text-[#2b96d1]',
     topics: [
       { id: '2-1', title: '第1节 力' },
       { id: '2-2', title: '第2节 运动与相互作用' },
@@ -81,7 +78,7 @@ const SCIENCE_OUTLINE: OutlineCategory[] = [
     ]
   },
   {
-    letter: 'C', title: '第3章 电路探秘', color: 'text-[#d24627]',
+    id: 'ch3', title: '第3章 电路探秘', color: 'text-[#d24627]',
     topics: [
       { id: '3-1', title: '第1节 电荷与电流' },
       { id: '3-2', title: '第2节 物质的导电性' },
@@ -90,7 +87,7 @@ const SCIENCE_OUTLINE: OutlineCategory[] = [
     ]
   },
   {
-    letter: 'D', title: '第4章 水与人类', color: 'text-[#6d28d9]',
+    id: 'ch4', title: '第4章 水与人类', color: 'text-[#6d28d9]',
     topics: [
       { id: '4-1', title: '第1节 人类家园中的水' },
       { id: '4-2', title: '第2节 生活中的水溶液' },
@@ -100,7 +97,7 @@ const SCIENCE_OUTLINE: OutlineCategory[] = [
     ]
   },
   {
-    letter: 'E', title: '第5章 建筑结构与工程', color: 'text-[#0d9488]',
+    id: 'ch5', title: '第5章 建筑结构与工程', color: 'text-[#0d9488]',
     topics: [
       { id: '5-1', title: '第1节 建筑结构与功能' },
       { id: '5-2', title: '第2节 桥梁的结构与制作' }
@@ -203,7 +200,6 @@ const StudentView: React.FC = () => {
                 <img src={book.cover} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 to-transparent" />
                 
-                {/* 仿真封面修饰 (视觉上贴近用户提供的 bridge 封面) */}
                 <div className="absolute top-0 left-0 bottom-0 w-20 bg-sky-500/80 backdrop-blur-sm flex flex-col items-center py-8 text-white">
                    <div className="w-12 h-12 rounded-full border-2 border-white/50 flex items-center justify-center mb-6">
                       <GraduationCap className="w-6 h-6" />
@@ -236,7 +232,7 @@ const StudentView: React.FC = () => {
     </div>
   );
 
-  // 2. IXL 风格大纲阶段
+  // 2. IXL 风格大纲阶段 (Clean Outline without A, B, 1, 2)
   const renderOutlineStage = () => (
     <div className="flex-1 bg-white p-10 animate-in fade-in duration-500 overflow-y-auto custom-scrollbar">
       <div className="max-w-6xl mx-auto space-y-12">
@@ -247,29 +243,27 @@ const StudentView: React.FC = () => {
               </button>
            </div>
            <h1 className="text-[56px] font-black text-[#d24627] tracking-tight leading-none mb-6">
-              {selectedBook?.grade.replace('八年级', 'Second grade')} science
+              {selectedBook?.grade} 科学
            </h1>
            <p className="text-slate-600 text-[17px] leading-relaxed max-w-5xl font-medium">
-             探课AI 提供了几十项 {selectedBook?.grade} 科学技能供你探索和学习！不确定从哪里开始？去你的 <span className="text-[#2b96d1] hover:underline cursor-pointer font-bold">个性化推荐墙</span> 寻找一个看起来很有趣的技能，或者选择一个符合你教材的学习计划。
+             探课AI 提供了几十项科学技能供你探索和学习！选择一个章节开始你的挑战之旅。
            </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-20 gap-y-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-16">
           {SCIENCE_OUTLINE.map((cat) => (
-            <div key={cat.letter} className="space-y-6">
+            <div key={cat.id} className="space-y-6">
               <h3 className={`text-[24px] font-black flex items-start gap-3 ${cat.color} leading-tight`}>
-                <span className="text-2xl font-serif italic opacity-50">{cat.letter}.</span>
                 {cat.title}
               </h3>
-              <ul className="space-y-3.5 ml-8">
-                {cat.topics.map((topic, idx) => (
+              <ul className="space-y-3 ml-1">
+                {cat.topics.map((topic) => (
                   <li 
                     key={topic.id}
                     onClick={() => topic.active && setFlowStage('workbench')}
-                    className={`group flex items-start gap-4 cursor-pointer transition-all ${topic.active ? 'text-slate-900' : 'text-slate-500 hover:text-slate-800'}`}
+                    className={`group flex items-start gap-2 cursor-pointer transition-all ${topic.active ? 'text-slate-900' : 'text-slate-500 hover:text-slate-800'}`}
                   >
-                    <span className="text-[13px] font-black mt-1 opacity-60 w-4">{idx + 1}</span>
-                    <span className={`text-[16px] leading-snug font-medium group-hover:underline group-hover:decoration-2 underline-offset-4 ${topic.active ? 'font-bold decoration-amber-500 decoration-2 underline-offset-4' : ''}`}>
+                    <span className={`text-[16px] leading-snug font-medium group-hover:underline group-hover:decoration-amber-500/30 group-hover:decoration-2 underline-offset-4 ${topic.active ? 'font-bold decoration-amber-500 decoration-2 underline-offset-4' : ''}`}>
                       {topic.title}
                     </span>
                     {topic.active && (

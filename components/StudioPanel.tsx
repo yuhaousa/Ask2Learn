@@ -25,12 +25,13 @@ import {
   Settings2,
   Activity,
   Move,
-  // Fix: Added missing Monitor icon to the imports
-  Monitor
+  Monitor,
+  Compass,
+  ArrowRight,
+  ArrowLeft
 } from 'lucide-react';
 import { Dimension } from '../types.ts';
-import { geminiService, QuizQuestion, Flashcard, Slide, GameScenario } from '../services/geminiService.ts';
-import { GoogleGenAI } from "@google/genai";
+import { geminiService, QuizQuestion, Flashcard, Slide, GameScenario, TutorialGuide } from '../services/geminiService.ts';
 
 interface StudioPanelProps {
   currentDimension?: Dimension;
@@ -49,6 +50,12 @@ interface PhysicsObject {
 const StudioPanel: React.FC<StudioPanelProps> = ({ currentDimension = Dimension.WHAT }) => {
   const [activeToolId, setActiveToolId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  
+  // States for Tutorial
+  const [tutorialData, setTutorialData] = useState<TutorialGuide | null>(null);
+  const [currentTutorialStep, setCurrentTutorialStep] = useState(0);
+  const [tutorialAnimationState, setTutorialAnimationState] = useState<'idle' | 'hanging' | 'submerged'>('idle');
+
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
   const [userAnswers, setUserAnswers] = useState<(number | null)[]>([]);
 
@@ -56,36 +63,23 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ currentDimension = Dimension.
   const [flippedCards, setFlippedCards] = useState<boolean[]>([]);
 
   const [infographicUrl, setInfographicUrl] = useState<string | null>(null);
-  const [isInfographicFull, setIsInfographicFull] = useState(false);
 
   const [slides, setSlides] = useState<Slide[]>([]);
   const [currentSlideIdx, setCurrentSlideIdx] = useState(0);
-  const [isSlidesFull, setIsSlidesFull] = useState(false);
   const [slideImages, setSlideImages] = useState<Record<number, string>>({});
-  const [generatingIndices, setGeneratingIndices] = useState<Set<number>>(new Set());
 
   const [gameScenario, setGameScenario] = useState<GameScenario | null>(null);
   const [selectedObject, setSelectedObject] = useState<PhysicsObject | null>(null);
   const [isSubmerged, setIsSubmerged] = useState(false);
-  const [simulationY, setSimulationY] = useState(0); // 0: tank top, 100: bottom
-  const [isGameFull, setIsGameFull] = useState(false);
+  const [simulationY, setSimulationY] = useState(0);
 
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
 
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [videoPrompt, setVideoPrompt] = useState("");
-  const [videoError, setVideoError] = useState<string | null>(null);
-  const [generationStep, setGenerationStep] = useState<'idle' | 'auth' | 'generating' | 'completed'>('idle');
-
-  const history = [
-    { title: '浮力成因深度解析', sources: 3, time: '2小时前', icon: FileText, iconColor: 'text-indigo-500' },
-    { title: '阿基米德原理随堂测', sources: 1, time: '昨天', icon: HelpCircle, iconColor: 'text-sky-500' },
-  ];
-
   const tools = [
+    { id: 'tutorial', name: '互动教程', icon: Compass, color: 'bg-amber-50 text-amber-600', border: 'border-amber-100', beta: false },
     { id: 'audio', name: '音频概述', icon: Mic2, color: 'bg-indigo-50 text-indigo-600', border: 'border-indigo-100', beta: false },
     { id: 'video', name: '视频详解', icon: Video, color: 'bg-emerald-50 text-emerald-600', border: 'border-emerald-100', beta: true },
     { id: 'game', name: '互动游戏', icon: Gamepad2, color: 'bg-fuchsia-50 text-fuchsia-600', border: 'border-fuchsia-100', beta: true },
@@ -95,89 +89,12 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ currentDimension = Dimension.
     { id: 'slides', name: '幻灯片生成', icon: Layout, color: 'bg-orange-50 text-orange-600', border: 'border-orange-100', beta: true },
   ];
 
-  const PHYSICS_OBJECTS: PhysicsObject[] = [
-    { id: 'wood', name: '干燥木块', density: 0.5, color: 'bg-amber-700', shape: 'rect', mass: 100, volume: 200 },
-    { id: 'ice', name: '透明冰块', density: 0.9, color: 'bg-sky-100', shape: 'rect', mass: 180, volume: 200 },
-    { id: 'plastic', name: '塑料球', density: 0.8, color: 'bg-indigo-400', shape: 'circle', mass: 80, volume: 100 },
-    { id: 'iron', name: '精铁球', density: 7.8, color: 'bg-slate-600', shape: 'circle', mass: 390, volume: 50 },
-  ];
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (isSlidesFull) {
-        if (e.key === 'ArrowRight' || e.key === ' ') {
-          setCurrentSlideIdx(prev => Math.min(slides.length - 1, prev + 1));
-        } else if (e.key === 'ArrowLeft') {
-          setCurrentSlideIdx(prev => Math.max(0, prev - 1));
-        } else if (e.key === 'Escape') {
-          setIsSlidesFull(false);
-        }
-      }
-      if (isGameFull && e.key === 'Escape') {
-        setIsGameFull(false);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      stopAudio();
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isSlidesFull, isGameFull, slides.length]);
-
-  useEffect(() => {
-    if (activeToolId === 'game' && selectedObject && isSubmerged) {
-      const waterDensity = 1.0;
-      let targetY = 0;
-      
-      if (selectedObject.density < waterDensity) {
-        const submergedRatio = selectedObject.density / waterDensity;
-        targetY = 30 - (submergedRatio * 10); 
-      } else {
-        targetY = 82;
-      }
-      const timer = setTimeout(() => setSimulationY(targetY), 50);
-      return () => clearTimeout(timer);
-    } else {
-      setSimulationY(10);
-    }
-  }, [selectedObject, isSubmerged, activeToolId]);
-
-  function decode(base64: string) {
-    const binaryString = atob(base64);
-    const len = binaryString.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    return bytes;
-  }
-
-  async function decodeAudioData(
-    data: Uint8Array,
-    ctx: AudioContext,
-    sampleRate: number,
-    numChannels: number,
-  ): Promise<AudioBuffer> {
-    const dataInt16 = new Int16Array(data.buffer);
-    const frameCount = dataInt16.length / numChannels;
-    const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
-
-    for (let channel = 0; channel < numChannels; channel++) {
-      const channelData = buffer.getChannelData(channel);
-      for (let i = 0; i < frameCount; i++) {
-        channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
-      }
-    }
-    return buffer;
-  }
-
   const handleToolClick = (toolId: string) => {
     setActiveToolId(toolId);
-    if (toolId === 'quiz') {
+    if (toolId === 'tutorial') {
+      if (!tutorialData) generateNewTutorial();
+    } else if (toolId === 'quiz') {
       if (quizQuestions.length === 0) generateNewQuiz();
-    } else if (toolId === 'video') {
-      setVideoPrompt(`关于“水的浮力”中“${currentDimension}”维度的科学教育动画。专业3D渲染，清晰的科学演示，展示浮力的物理机制。`);
-      if (!videoUrl) setGenerationStep('idle'); else setGenerationStep('completed');
     } else if (toolId === 'flashcards') {
       if (flashcards.length === 0) generateNewFlashcards();
     } else if (toolId === 'infographic') {
@@ -191,38 +108,27 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ currentDimension = Dimension.
     }
   };
 
+  const generateNewTutorial = async () => {
+    setIsGenerating(true);
+    setCurrentTutorialStep(0);
+    setTutorialAnimationState('idle');
+    try {
+      const data = await geminiService.generateTutorial("水的浮力", currentDimension);
+      setTutorialData(data);
+    } catch (e) { console.error(e); } finally { setIsGenerating(false); }
+  };
+
   const generateNewAudio = async () => {
     setIsGenerating(true);
-    stopAudio();
     try {
       const base64Audio = await geminiService.generateAudioOverview("水的浮力", currentDimension);
       if (!audioContextRef.current) {
         audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
       }
-      const bytes = decode(base64Audio);
-      const buffer = await decodeAudioData(bytes, audioContextRef.current, 24000, 1);
+      const bytes = atob(base64Audio).split('').map(c => c.charCodeAt(0));
+      const buffer = await decodeAudioData(new Uint8Array(bytes), audioContextRef.current, 24000, 1);
       setAudioBuffer(buffer);
     } catch (error) { console.error(error); } finally { setIsGenerating(false); }
-  };
-
-  const playAudio = () => {
-    if (!audioBuffer || !audioContextRef.current) return;
-    stopAudio();
-    const source = audioContextRef.current.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(audioContextRef.current.destination);
-    source.onended = () => setIsAudioPlaying(false);
-    source.start(0);
-    sourceNodeRef.current = source;
-    setIsAudioPlaying(true);
-  };
-
-  const stopAudio = () => {
-    if (sourceNodeRef.current) {
-      try { sourceNodeRef.current.stop(); } catch (e) {}
-      sourceNodeRef.current = null;
-    }
-    setIsAudioPlaying(false);
   };
 
   const generateNewQuiz = async () => {
@@ -253,194 +159,166 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ currentDimension = Dimension.
 
   const generateNewSlides = async () => {
     setIsGenerating(true);
-    setSlideImages({});
-    setGeneratingIndices(new Set());
     try {
       const deck = await geminiService.generateSlides("水的浮力", currentDimension);
       setSlides(deck);
       setCurrentSlideIdx(0);
-      deck.forEach((slide, idx) => autoGenerateImage(idx, slide.visualPrompt));
     } catch (error) { console.error(error); } finally { setIsGenerating(false); }
-  };
-
-  const autoGenerateImage = async (idx: number, prompt: string) => {
-    setGeneratingIndices(prev => new Set(prev).add(idx));
-    try {
-      const url = await geminiService.generateSlideImage(prompt);
-      setSlideImages(prev => ({ ...prev, [idx]: url }));
-    } catch (e) { console.error(`Auto image gen failed for slide ${idx}`, e); } 
-    finally {
-      setGeneratingIndices(prev => {
-        const next = new Set(prev);
-        next.delete(idx);
-        return next;
-      });
-    }
   };
 
   const generateNewGame = async () => {
     setIsGenerating(true);
-    setSelectedObject(null);
-    setIsSubmerged(false);
     try {
       const scenario = await geminiService.generateGame("水的浮力", currentDimension);
       setGameScenario(scenario);
     } catch (error) { console.error(error); } finally { setIsGenerating(false); }
   };
 
-  const handleObjectSelect = (obj: PhysicsObject) => {
-    setSelectedObject(obj);
-    setIsSubmerged(false);
-    setSimulationY(10);
+  async function decodeAudioData(data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> {
+    const dataInt16 = new Int16Array(data.buffer);
+    const frameCount = dataInt16.length / numChannels;
+    const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
+    for (let channel = 0; channel < numChannels; channel++) {
+      const channelData = buffer.getChannelData(channel);
+      for (let i = 0; i < frameCount; i++) {
+        channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
+      }
+    }
+    return buffer;
+  }
+
+  const playAudio = () => {
+    if (!audioBuffer || !audioContextRef.current) return;
+    const source = audioContextRef.current.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(audioContextRef.current.destination);
+    source.onended = () => setIsAudioPlaying(false);
+    source.start(0);
+    sourceNodeRef.current = source;
+    setIsAudioPlaying(true);
   };
 
-  const activeTool = tools.find(t => t.id === activeToolId);
+  const stopAudio = () => {
+    if (sourceNodeRef.current) sourceNodeRef.current.stop();
+    setIsAudioPlaying(false);
+  };
 
-  const PhysicsLab = ({ full = false }: { full?: boolean }) => {
-    if (!gameScenario) return null;
-    
+  const TutorialView = () => {
+    if (isGenerating) return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4">
+        <Loader2 className="w-12 h-12 text-amber-500 animate-spin" />
+        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">AI 准备课件中...</p>
+      </div>
+    );
+    if (!tutorialData) return null;
+
+    const steps = tutorialData.steps;
+    const currentStep = steps[currentTutorialStep];
+    const gravity = 5.0; // N
+    const buoyancy = 2.0; // N
+    const reading = tutorialAnimationState === 'submerged' ? (gravity - buoyancy).toFixed(1) : gravity.toFixed(1);
+
     return (
-      <div className={`flex gap-6 ${full ? 'h-full w-full max-w-7xl mx-auto' : 'h-full min-h-0'} flex-row animate-in fade-in duration-500`}>
-        <div className={`flex flex-col gap-4 ${full ? 'w-[340px]' : 'w-[220px]'} shrink-0 h-full`}>
-           <div className="bg-white border border-slate-100 rounded-[2rem] p-5 shadow-sm flex flex-col gap-4 flex-1 overflow-hidden">
-              <div className="flex items-center gap-3">
-                 <div className="p-3 rounded-2xl bg-fuchsia-50 text-fuchsia-600 shrink-0">
-                    <Brain className="w-5 h-5" />
-                 </div>
-                 <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">探究专家建议</h4>
-              </div>
-              <div className="flex-1 overflow-y-auto no-scrollbar space-y-4">
-                 <p className={`${full ? 'text-sm' : 'text-[11px]'} text-slate-600 font-medium leading-relaxed`}>
-                   {gameScenario.context}
-                 </p>
-                 {isSubmerged && (
-                   <div className="p-4 bg-fuchsia-50 border border-fuchsia-100 rounded-2xl animate-in slide-in-from-bottom-2">
-                      <p className="text-[10px] text-fuchsia-700 font-bold leading-relaxed italic">
-                        “{selectedObject?.density! < 1.0 ? gameScenario.options[0].scientificReason : gameScenario.options[2].scientificReason}”
-                      </p>
-                   </div>
-                 )}
-              </div>
-              <button 
-                onClick={generateNewGame}
-                disabled={isGenerating}
-                className="w-full mt-2 py-4 bg-slate-900 text-white rounded-[1.2rem] text-xs font-bold flex items-center justify-center gap-2 hover:bg-slate-800 transition-all active:scale-95 shadow-xl shadow-slate-200 shrink-0"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isGenerating ? 'animate-spin' : ''}`} /> 开启新冒险
-              </button>
-           </div>
-
-           {selectedObject && (
-              <div className="bg-slate-50 border border-slate-100 rounded-[1.5rem] p-4 space-y-3 shrink-0">
-                 <div className="flex items-center gap-2 text-slate-400">
-                    <Activity className="w-3.5 h-3.5" />
-                    <span className="text-[9px] font-black uppercase tracking-widest">仿真参量</span>
-                 </div>
-                 <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-white p-2 rounded-xl border border-slate-100 text-center">
-                       <p className="text-[8px] font-bold text-slate-400 uppercase">Mass</p>
-                       <p className="text-[11px] font-black text-slate-800">{selectedObject.mass}g</p>
-                    </div>
-                    <div className="bg-white p-2 rounded-xl border border-slate-100 text-center">
-                       <p className="text-[8px] font-bold text-slate-400 uppercase">Dens</p>
-                       <p className="text-[11px] font-black text-slate-800">{selectedObject.density}</p>
-                    </div>
-                 </div>
-              </div>
-           )}
+      <div className="space-y-6 animate-in fade-in duration-500">
+        <div className="bg-amber-50/50 p-4 rounded-2xl border border-amber-100 mb-2">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="bg-amber-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full">Step {currentTutorialStep + 1}</span>
+            <h4 className="text-xs font-black text-slate-800 uppercase">{tutorialData.title}</h4>
+          </div>
+          <p className="text-[11px] font-bold text-slate-600 leading-relaxed italic">“{currentStep.instruction}”</p>
         </div>
 
-        <div className="flex-1 flex flex-col gap-4 min-w-0 h-full">
-           <div className={`relative w-full flex-1 bg-slate-50 border-2 border-slate-200 rounded-[2.5rem] overflow-hidden shadow-inner flex flex-col`}>
-              <div className="h-20 px-6 w-full bg-slate-100/50 border-b border-dashed border-slate-200 flex gap-4 overflow-x-auto no-scrollbar items-center justify-center shrink-0">
-                <div className="flex gap-4">
-                  {PHYSICS_OBJECTS.map(obj => (
-                     <button 
-                       key={obj.id}
-                       onClick={() => handleObjectSelect(obj)}
-                       className={`shrink-0 w-14 h-14 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-1 group
-                         ${selectedObject?.id === obj.id ? 'bg-white border-fuchsia-500 shadow-md scale-105' : 'bg-white/80 border-slate-50 hover:border-slate-300'}
-                       `}
-                     >
-                       <div className={`w-6 h-6 rounded shadow-sm ${obj.color} ${obj.shape === 'circle' ? 'rounded-full' : ''} group-hover:scale-110 transition-transform`} />
-                       <span className="text-[8px] font-black text-slate-500 uppercase tracking-tighter">{obj.name}</span>
-                     </button>
-                  ))}
-                </div>
+        {/* Experiment Simulation Box */}
+        <div className="relative h-64 bg-slate-100 rounded-3xl border border-slate-200 overflow-hidden shadow-inner flex justify-center">
+          {/* Beaker */}
+          <div className="absolute bottom-4 w-32 h-32 border-x-4 border-b-4 border-slate-300 rounded-b-3xl bg-white/50 overflow-hidden">
+            <div className="absolute inset-x-0 bottom-0 h-[60%] bg-sky-300/40 animate-pulse" />
+          </div>
+
+          {/* Spring Scale SVG */}
+          <div className="absolute top-0 flex flex-col items-center">
+            <div className="w-0.5 h-10 bg-slate-400" /> {/* Support wire */}
+            <div className="bg-white border-2 border-slate-300 w-12 h-24 rounded-lg flex flex-col items-center justify-center shadow-sm relative">
+              {/* Dial markings */}
+              {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} className="absolute left-1 w-2 h-0.5 bg-slate-300" style={{ top: `${i * 15}%` }} />
+              ))}
+              <span className="text-[10px] font-black text-amber-600">{tutorialAnimationState !== 'idle' ? reading : '0.0'} N</span>
+            </div>
+            
+            {/* The Spring and Object */}
+            <div 
+              className="transition-all duration-700 ease-out flex flex-col items-center"
+              style={{ 
+                marginTop: tutorialAnimationState === 'idle' ? '0px' : tutorialAnimationState === 'hanging' ? '20px' : '40px' 
+              }}
+            >
+              <div className="w-1 bg-slate-400" style={{ height: tutorialAnimationState === 'idle' ? '10px' : '30px' }} />
+              <div className={`w-10 h-10 bg-amber-600 rounded-lg shadow-md flex items-center justify-center ${tutorialAnimationState === 'idle' ? 'opacity-20' : ''}`}>
+                 <div className="w-4 h-1 bg-white/20 rounded-full" />
               </div>
+            </div>
+          </div>
+        </div>
 
-              <div className="flex-1 relative">
-                 <div className="absolute inset-x-12 bottom-10 top-10 border-x-8 border-b-8 border-slate-300 rounded-b-[3.5rem] bg-white/40 overflow-hidden shadow-[inset_0_-20px_50px_rgba(0,0,0,0.02)]">
-                    <div className="absolute inset-x-0 bottom-0 top-[35%] bg-sky-400/25 backdrop-blur-[2px] animate-pulse">
-                       <div className="absolute top-0 inset-x-0 h-6 bg-sky-200/40 blur-lg" />
-                    </div>
+        {/* Action Controls */}
+        <div className="flex gap-2">
+          {currentTutorialStep === 1 && tutorialAnimationState === 'idle' && (
+            <button 
+              onClick={() => setTutorialAnimationState('hanging')}
+              className="flex-1 py-3 bg-slate-900 text-white rounded-xl text-[11px] font-bold shadow-lg hover:bg-slate-800 transition-all active:scale-95"
+            >
+              挂上铝块测量 G
+            </button>
+          )}
+          {currentTutorialStep === 2 && tutorialAnimationState === 'hanging' && (
+            <button 
+              onClick={() => setTutorialAnimationState('submerged')}
+              className="flex-1 py-3 bg-sky-600 text-white rounded-xl text-[11px] font-bold shadow-lg hover:bg-sky-700 transition-all active:scale-95"
+            >
+              浸入水中测量 F'
+            </button>
+          )}
+        </div>
 
-                    {selectedObject && (
-                       <div 
-                         className={`absolute left-1/2 -translate-x-1/2 transition-all duration-[1200ms] cubic-bezier(0.17, 0.67, 0.83, 0.67) flex items-center justify-center
-                           ${selectedObject.shape === 'circle' ? 'rounded-full' : 'rounded-[1.5rem]'} ${selectedObject.color} shadow-2xl
-                         `}
-                         style={{ 
-                           top: `${simulationY}%`,
-                           width: `${selectedObject.volume / (full ? 1.0 : 1.8)}px`,
-                           height: `${selectedObject.volume / (full ? 1.0 : 1.8)}px`
-                         }}
-                       >
-                          {isSubmerged && (
-                            <div className="absolute inset-0 pointer-events-none">
-                               <div className="absolute bottom-full left-1/2 -translate-x-1/2 flex flex-col items-center mb-2">
-                                  <div className={`${full ? 'h-36 w-1.5' : 'h-20 w-0.5'} bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.6)]`} />
-                                  <div className={`${full ? 'border-x-8 border-t-8' : 'border-x-4 border-t-4'} w-0 h-0 border-x-transparent border-t-green-500`} />
-                                  <span className={`${full ? 'text-xs' : 'text-[9px]'} font-black text-green-600 mt-2 bg-white/90 px-2.5 py-1 rounded-full border border-green-100 shadow-sm`}>F_浮</span>
-                               </div>
-                               <div className="absolute top-full left-1/2 -translate-x-1/2 flex flex-col items-center mt-2">
-                                  <div className={`${full ? 'border-x-8 border-b-8' : 'border-x-4 border-b-4'} w-0 h-0 border-x-transparent border-b-rose-500`} />
-                                  <div className={`${full ? 'h-36 w-1.5' : 'h-20 w-0.5'} bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.6)]`} />
-                                  <span className={`${full ? 'text-xs' : 'text-[9px]'} font-black text-rose-600 mt-2 bg-white/90 px-2.5 py-1 rounded-full border border-rose-100 shadow-sm`}>G_重</span>
-                               </div>
-                            </div>
-                          )}
-                          <Move className={`${full ? 'w-10 h-10' : 'w-4 h-4'} text-white/40`} />
-                       </div>
-                    )}
-                 </div>
+        {/* AI Insight Section */}
+        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex gap-4 items-start">
+          <div className="bg-amber-500/10 p-2 rounded-xl text-amber-600 shrink-0">
+            <Brain className="w-5 h-5" />
+          </div>
+          <div>
+            <h5 className="text-[10px] font-black text-amber-600 uppercase mb-1 tracking-widest">老师深度点拨</h5>
+            <p className="text-[11px] font-medium text-slate-500 leading-relaxed">{currentStep.insight}</p>
+          </div>
+        </div>
 
-                 {!isSubmerged && selectedObject && (
-                   <button 
-                     onClick={() => setIsSubmerged(true)}
-                     className={`absolute bottom-24 left-1/2 -translate-x-1/2 ${full ? 'px-20 py-8 text-2xl' : 'px-12 py-5 text-base'} bg-fuchsia-600 text-white rounded-full font-bold shadow-2xl shadow-fuchsia-200 flex items-center gap-4 active:scale-95 transition-all animate-bounce`}
-                   >
-                     <Target className={`${full ? 'w-10 h-10' : 'w-6 h-6'}`} /> 投入水中
-                   </button>
-                 )}
-
-                 {isSubmerged && (
-                   <div className={`absolute right-20 ${full ? 'top-[45%] w-80' : 'top-[40%] w-56'} animate-in slide-in-from-right duration-500`}>
-                      <div className={`p-8 rounded-[2.5rem] border-2 shadow-[0_30px_60px_rgba(0,0,0,0.12)] ${selectedObject?.density! < 1.0 ? 'bg-green-50 border-green-200' : 'bg-rose-50 border-rose-200'}`}>
-                         <h5 className={`${full ? 'text-xl' : 'text-xs'} font-black uppercase mb-2 ${selectedObject?.density! < 1.0 ? 'text-green-700' : 'text-rose-700'}`}>
-                           {selectedObject?.density! < 1.0 ? '漂浮' : '下沉'}
-                         </h5>
-                         <p className={`${full ? 'text-base' : 'text-[11px]'} leading-relaxed text-slate-600 font-bold`}>
-                           ρ物 {selectedObject?.density! < 1.0 ? '<' : '>'} ρ液
-                         </p>
-                      </div>
-                   </div>
-                 )}
-
-                 {!full && (
-                   <button 
-                     onClick={() => setIsGameFull(true)}
-                     className="absolute bottom-10 right-10 p-3 bg-white/95 backdrop-blur-sm rounded-2xl border border-slate-200 text-slate-400 hover:text-fuchsia-600 transition-colors shadow-sm active:scale-90"
-                   >
-                     <Maximize2 className="w-6 h-6" />
-                   </button>
-                 )}
-              </div>
-           </div>
+        {/* Navigation */}
+        <div className="flex justify-between items-center pt-2">
+          <button 
+            disabled={currentTutorialStep === 0}
+            onClick={() => setCurrentTutorialStep(prev => prev - 1)}
+            className="p-2 text-slate-400 hover:text-slate-800 disabled:opacity-30 transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="flex gap-1.5">
+            {steps.map((_, i) => (
+              <div key={i} className={`h-1.5 rounded-full transition-all ${i === currentTutorialStep ? 'w-6 bg-amber-500' : 'w-1.5 bg-slate-200'}`} />
+            ))}
+          </div>
+          <button 
+            disabled={currentTutorialStep === steps.length - 1}
+            onClick={() => setCurrentTutorialStep(prev => prev + 1)}
+            className="p-2 text-slate-400 hover:text-slate-800 disabled:opacity-30 transition-colors"
+          >
+            <ArrowRight className="w-5 h-5" />
+          </button>
         </div>
       </div>
     );
   };
+
+  const activeTool = tools.find(t => t.id === activeToolId);
 
   return (
     <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex flex-col h-full overflow-hidden">
@@ -456,22 +334,28 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ currentDimension = Dimension.
       </div>
 
       <div className="flex-1 overflow-y-auto p-5 custom-scrollbar">
-        {activeToolId === 'game' ? (
-          <div className="h-full flex flex-col">
-            {isGenerating ? (
-              <div className="py-20 flex flex-col items-center justify-center gap-4">
-                <Loader2 className="w-12 h-12 text-fuchsia-100 animate-spin" />
-                <p className="text-xs text-slate-400 font-medium animate-pulse">AI 正在准备实验室...</p>
+        {!activeToolId ? (
+          <div className="grid grid-cols-2 gap-3">
+            {tools.map((tool) => (
+              <div 
+                key={tool.id} 
+                onClick={() => handleToolClick(tool.id)} 
+                className={`group relative p-3 rounded-2xl border ${tool.border} ${tool.color.split(' ')[0]} transition-all hover:shadow-md cursor-pointer`}
+              >
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <tool.icon className={`w-5 h-5 ${tool.color.split(' ')[1]}`} />
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[11px] font-bold text-slate-700 leading-tight">{tool.name}</span>
+                    {tool.beta && <span className="bg-slate-900 text-white text-[8px] px-1.5 py-0.5 rounded font-black tracking-tighter scale-90 origin-left">BETA</span>}
+                  </div>
+                </div>
               </div>
-            ) : gameScenario ? (
-              <PhysicsLab full={false} />
-            ) : (
-              <div className="py-20 flex flex-col items-center justify-center gap-4 text-center">
-                <Gamepad2 className="w-12 h-12 text-slate-200" />
-                <p className="text-xs text-slate-400">点击侧边栏开启冒险</p>
-              </div>
-            )}
+            ))}
           </div>
+        ) : activeToolId === 'tutorial' ? (
+          <TutorialView />
         ) : activeToolId === 'audio' ? (
           <div className="space-y-6 animate-in fade-in duration-300">
              <div className="flex items-center justify-between">
@@ -509,50 +393,12 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ currentDimension = Dimension.
             ) : null}
           </div>
         ) : (
-          <>
-            <div className="grid grid-cols-2 gap-3 mb-8">
-              {tools.map((tool, i) => (
-                <div key={i} onClick={() => handleToolClick(tool.id)} className={`group relative p-3 rounded-2xl border ${tool.border} ${tool.color.split(' ')[0]} transition-all hover:shadow-md cursor-pointer`}>
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center justify-between">
-                      <tool.icon className={`w-5 h-5 ${tool.color.split(' ')[1]}`} />
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[11px] font-bold text-slate-700 leading-tight">{tool.name}</span>
-                      {tool.beta && <span className="bg-slate-900 text-white text-[8px] px-1.5 py-0.5 rounded font-black tracking-tighter scale-90 origin-left">BETA</span>}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
+          <div className="py-20 flex flex-col items-center justify-center text-center gap-4">
+            <Settings2 className="w-12 h-12 text-slate-200" />
+            <p className="text-xs text-slate-400 uppercase font-black">工具开发中...</p>
+          </div>
         )}
       </div>
-
-      {isGameFull && gameScenario && (
-        <div className="fixed inset-0 z-[9999] bg-slate-950/95 backdrop-blur-2xl flex flex-col animate-in fade-in duration-300 overflow-hidden">
-          <div className="p-6 flex items-center justify-between border-b border-white/5 shrink-0">
-            <div className="flex items-center gap-4">
-              <div className="bg-fuchsia-600 p-2.5 rounded-xl shadow-lg shadow-fuchsia-600/20">
-                <Monitor className="text-white w-5 h-5" />
-              </div>
-              <div>
-                <h4 className="text-white font-bold tracking-tight">沉浸实验室：{currentDimension}</h4>
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">探课AI · 物理交互仿真</p>
-              </div>
-            </div>
-            <button 
-              onClick={() => setIsGameFull(false)}
-              className="p-3 bg-white/5 hover:bg-white/10 text-white rounded-full transition-all border border-white/10 active:scale-90"
-            >
-              <X className="w-6 h-6" />
-            </button>
-          </div>
-          <div className="flex-1 relative flex flex-col p-10 lg:p-16 overflow-hidden">
-             <PhysicsLab full={true} />
-          </div>
-        </div>
-      )}
     </div>
   );
 };

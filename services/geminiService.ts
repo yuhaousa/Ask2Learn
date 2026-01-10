@@ -33,6 +33,14 @@ export interface GameScenario {
   }[];
 }
 
+export interface TutorialGuide {
+  title: string;
+  steps: {
+    instruction: string;
+    insight: string;
+  }[];
+}
+
 export class GeminiService {
   async getTeacherResponse(history: ChatMessage[], currentQuestion: string): Promise<{ text: string; diagnosis?: LearningStatus }> {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -286,6 +294,43 @@ export class GeminiService {
       return JSON.parse(response.text || "{}");
     } catch (error) {
       console.error("Game Generation Error:", error);
+      throw error;
+    }
+  }
+
+  async generateTutorial(topic: string, dimension: Dimension): Promise<TutorialGuide> {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `为"${topic}"的"${dimension}"维度生成一个4步虚拟实验教程（称重法测浮力）。每一步需要一条简洁的操作指令(instruction)和一条富有深度的科学见解(insight)。请返回JSON格式。`,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING },
+              steps: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    instruction: { type: Type.STRING },
+                    insight: { type: Type.STRING }
+                  },
+                  required: ["instruction", "insight"]
+                },
+                minItems: 4,
+                maxItems: 4
+              }
+            },
+            required: ["title", "steps"]
+          }
+        }
+      });
+      return JSON.parse(response.text || "{}");
+    } catch (error) {
+      console.error("Tutorial Generation Error:", error);
       throw error;
     }
   }

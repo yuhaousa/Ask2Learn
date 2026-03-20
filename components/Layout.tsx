@@ -1,14 +1,20 @@
 
 import React from 'react';
-import { BookOpen, User, Settings, GraduationCap, LayoutDashboard } from 'lucide-react';
+import { User, Settings, GraduationCap, LayoutDashboard, LogIn, LogOut } from 'lucide-react';
+import type { ApiProvider } from './SettingsPanel.tsx';
 
 interface LayoutProps {
   children: React.ReactNode;
   activeView: string;
   onViewChange: (view: 'student' | 'teacher' | 'landing') => void;
+  onSettingsClick?: () => void;
+  apiProvider?: ApiProvider;
+  authUser?: string | null;
+  onLoginClick?: () => void;
+  onLogout?: () => void;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChange }) => {
+const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChange, onSettingsClick, apiProvider = 'google', authUser, onLoginClick, onLogout }) => {
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
       <nav className="glass-morphism sticky top-0 z-50 px-6 py-4 flex items-center justify-between border-b shrink-0">
@@ -40,12 +46,40 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChange }) =
         </div>
 
         <div className="flex items-center gap-4">
-          <button className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-            <Settings className="w-5 h-5 text-slate-500" />
-          </button>
-          <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden border-2 border-amber-200">
-            <img src="https://picsum.photos/seed/user/100/100" alt="Avatar" />
+          <div className="text-xs font-bold px-3 py-1 rounded-full bg-slate-100 text-slate-600">
+            {apiProvider === 'google' ? 'Google' : '字节'}
           </div>
+          <button 
+            onClick={onSettingsClick}
+            className="p-2 hover:bg-slate-100 rounded-full transition-colors relative group"
+          >
+            <Settings className="w-5 h-5 text-slate-500 group-hover:rotate-90 transition-transform" />
+          </button>
+          {authUser ? (
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-full">
+                <div className="w-6 h-6 rounded-full bg-amber-400 flex items-center justify-center text-white text-xs font-bold">
+                  {authUser.charAt(0).toUpperCase()}
+                </div>
+                <span className="text-sm font-medium text-amber-700 hidden sm:block">{authUser}</span>
+              </div>
+              <button
+                onClick={onLogout}
+                title="退出登录"
+                className="p-2 hover:bg-red-50 rounded-full transition-colors group"
+              >
+                <LogOut className="w-4 h-4 text-slate-400 group-hover:text-red-500 transition-colors" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={onLoginClick}
+              className="flex items-center gap-1.5 px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-full transition-colors"
+            >
+              <LogIn className="w-4 h-4" />
+              登录
+            </button>
+          )}
         </div>
       </nav>
       

@@ -1,2 +1,6 @@
 name = "ask2learn"
 compatibility_date = "2024-09-23"
+main = "worker.ts"
+
+[assets]
+directory = "./dist"

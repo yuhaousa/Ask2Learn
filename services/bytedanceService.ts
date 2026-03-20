@@ -76,10 +76,10 @@ class ByteDanceService {
   }
 
   private async makeRequest(url: string, body: any): Promise<any> {
-    const isDevelopment = import.meta.env.DEV;
-    const requestUrl = isDevelopment
-      ? `/api/bytedance${url}`  // Use Vite proxy in development
-      : `${this.config.baseUrl}${url}`;  // Direct call in production
+    // Always route through the /api/bytedance proxy:
+    //  - In development: Vite dev server proxies to ByteDance (see vite.config.ts)
+    //  - In production: Cloudflare Pages Function proxies to ByteDance (functions/api/bytedance/[[path]].ts)
+    const requestUrl = `/api/bytedance${url}`;
 
     console.log('🚀 ByteDance API Request:', {
       url: requestUrl,

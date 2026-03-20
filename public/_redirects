@@ -1,0 +1,4 @@
+/* Cloudflare Pages – SPA fallback routing
+   All paths that don't match a static file are served index.html
+   so React Router / client-side routing works correctly. */
+/*    /index.html   200
